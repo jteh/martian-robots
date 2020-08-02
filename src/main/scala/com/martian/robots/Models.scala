@@ -1,5 +1,7 @@
 package com.martian.robots
 
+import scala.collection.mutable
+
 object Orientation extends Enumeration {
   protected case class Val(shortName: String) extends super.Val
   //scala enum vals are indexed by order of declaration
@@ -24,7 +26,12 @@ case class OrientationInstruction(shortName:String, orientationIdxShift:Int) ext
 case class CoordsInstruction(shortName:String) extends Instruction
 
 case class Position(x:Int, y:Int, orientation:Orientation.Value)
-case class Robot(posn:Position)
+case class Robot(posn:Position, isLost:Boolean = false)
 
 case class Cell(isScentedWithLostRobot:Boolean)
-case class Grid(xCoordMax:Int, yCoordMax:Int, cells:Map[Int,Map[Int,Cell]])
+case class Grid(xCoordMax:Int, yCoordMax:Int, cells:mutable.Map[Int,mutable.Map[Int,Cell]]) {
+  def get(x:Int,y:Int) = cells(y)(x)
+  def set(x:Int,y:Int, cell:Cell) = {
+    cells(y).+=((x,cell));()
+  }
+}

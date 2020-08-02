@@ -3,28 +3,40 @@ package com.martian.robots
 class InstructionProcessor(grid: Grid) {
 
   def process(instructions:List[String], robot:Robot) = {
-    val newPosn = instructions.foldLeft(robot.posn)((currentPosn, instr) => {
+    val movedRobot = instructions.foldLeft(robot)((currentRobot, currentInstr) => {
+      if(currentRobot.isLost) {
+        currentRobot
+      } else {
+        val instr = instructionRegistry.getOrElse(currentInstr, throw new NoSuchElementException(s"no instruction found for short name ${currentInstr}"))
+        instr match {
+          case oi:OrientationInstruction => {
+            val currentOrientationIdx = Orientation.fromShortName(currentRobot.posn.orientation.shortName).id
+            val orientationIdxShift = oi.orientationIdxShift
+            val newOrientation = newOrientationFrom(currentOrientationIdx, orientationIdxShift)
 
-      val inst = instructionRegistry.getOrElse(instr, throw new NoSuchElementException(s"no instruction found for short name ${instr}"))
-      inst match {
-        case oi:OrientationInstruction => {
-          val currentOrientationIdx = Orientation.fromShortName(currentPosn.orientation.shortName).id
-          val orientationIdxShift = oi.orientationIdxShift
-          val newOrientation = newOrientationFrom(currentOrientationIdx, orientationIdxShift)
+            currentRobot.copy(posn = currentRobot.posn.copy(orientation = newOrientation))
+          }
+          case _:CoordsInstruction => {
+            val currentOrientation = currentRobot.posn.orientation
+            val alterCoordFn = alterCoordsFns(currentOrientation)
+            val (currentX,currentY) = (currentRobot.posn.x, currentRobot.posn.y)
+            val (newX,newY) = alterCoordFn(currentX, currentY)
 
-          currentPosn.copy(orientation = newOrientation)
-        }
-        case _:CoordsInstruction => {
-          val currentOrientation = currentPosn.orientation
-          val moveCoordFn = moveCoordsFns(currentOrientation)
-          val (newX,newY) = moveCoordFn(currentPosn.x, currentPosn.y)
-
-          currentPosn.copy(x=newX,y=newY)
+            if (newY < 0 || newY > grid.yCoordMax || newX < 0 || newX > grid.xCoordMax) {
+              if(!grid.get(currentX,currentY).isScentedWithLostRobot) {
+                scent(currentX,currentY); currentRobot.copy(isLost = true);
+              } else currentRobot
+            } else currentRobot.copy(posn = currentRobot.posn.copy(x = newX, y = newY))
+          }
         }
       }
     })
+    movedRobot
+  }
 
-    robot.copy(posn = newPosn)
+  private def scent(x:Int, y:Int) = {
+    val cell = grid.get(x, y)
+    grid.set(x,y, cell.copy(isScentedWithLostRobot = true))
   }
 
   private def newOrientationFrom(currentOrientationIdx:Int, orientationIdxShift:Int) = {
