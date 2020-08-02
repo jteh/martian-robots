@@ -1,17 +1,27 @@
 package com.martian.robots
 
-object InstructionProcessor {
+class InstructionProcessor(grid: Grid) {
 
   def process(instructions:List[String], robot:Robot) = {
+    val newPosn = instructions.foldLeft(robot.posn)((currentPosn, instr) => {
 
-    val newPosn = instructions.foldLeft(robot.posn)((updatedPosn, instr) => {
+      val inst = instructionRegistry.getOrElse(instr, throw new NoSuchElementException(s"no instruction found for short name ${instr}"))
+      inst match {
+        case oi:OrientationInstruction => {
+          val currentOrientationIdx = Orientation.fromShortName(currentPosn.orientation.shortName).id
+          val orientationIdxShift = oi.orientationIdxShift
+          val newOrientation = newOrientationFrom(currentOrientationIdx, orientationIdxShift)
 
-      val currentOrientationIdx = Orientation.fromShortName(updatedPosn.orientation.shortName).id
-      val orientationIdxShift = Instruction.fromShortName(instr).orientationIdxShift
+          currentPosn.copy(orientation = newOrientation)
+        }
+        case _:CoordsInstruction => {
+          val currentOrientation = currentPosn.orientation
+          val moveCoordFn = moveCoordsFns(currentOrientation)
+          val (newX,newY) = moveCoordFn(currentPosn.x, currentPosn.y)
 
-      val newOrientation = newOrientationFrom(currentOrientationIdx, orientationIdxShift)
-
-      updatedPosn.copy(orientation = newOrientation)
+          currentPosn.copy(x=newX,y=newY)
+        }
+      }
     })
 
     robot.copy(posn = newPosn)
